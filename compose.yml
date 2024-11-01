@@ -19,7 +19,7 @@ services:
     rb-ci-cd-socat:
         container_name: rb-ci-cd-socat
         image: alpine/socat
-        restart: unless-stopped
+        restart: always
         command: "tcp-listen:2375,fork,reuseaddr unix-connect:/var/run/docker.sock"
         networks:
             - rb-ci-cd-net
