@@ -1,0 +1,64 @@
+version: "3.9"
+
+x-jenkins-environment-variables: &jenkins-environment-variables
+    JENKINS_PORT: ${JENKINS_PORT}
+
+x-app-environment-variables: &app-environment-variables
+    APP_PORT: ${APP_PORT}
+
+networks:
+    rb-ci-cd-net:
+        name: rb-ci-cd-net
+        driver: bridge
+
+volumes:
+    rb-ci-cd-jenkins:
+    rb-ci-cd-app:
+
+services:
+    rb-ci-cd-socat:
+        container_name: rb-ci-cd-socat
+        image: alpine/socat
+        restart: unless-stopped
+        command: "tcp-listen:2375,fork,reuseaddr unix-connect:/var/run/docker.sock"
+        networks:
+            - rb-ci-cd-net
+        volumes:
+            - /var/run/docker.sock:/var/run/docker.sock
+        ports:
+            - 2376:2375
+
+    rb-ci-cd-jenkins:
+        container_name: rb-ci-cd-jenkins
+        image: jenkins/jenkins:lts
+        restart: unless-stopped
+        environment:
+            <<: *jenkins-environment-variables
+        networks:
+            - rb-ci-cd-net
+        depends_on:
+            - rb-ci-cd-socat
+        volumes:
+            - rb-ci-cd-jenkins:/var/jenkins_home
+        ports:
+            - "${JENKINS_PORT}:${JENKINS_PORT}"
+
+    rb-ci-cd-app:
+        container_name: rb-ci-cd-app
+        build:
+            context: .
+            dockerfile: Dockerfile
+            target: production
+        image: ikkidominico/rb-ci-cd-app:1.0.0
+        command: yarn start
+        restart: unless-stopped
+        environment:
+            <<: *app-environment-variables
+        networks:
+            - rb-ci-cd-net
+        depends_on:
+            - rb-ci-cd-jenkins
+        volumes:
+            - rb-ci-cd-app:/app
+        ports:
+            - "${APP_PORT}:${APP_PORT}"
